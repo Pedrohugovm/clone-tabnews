@@ -3,6 +3,8 @@ import { join } from "node:path";
 import database from "infra/database.js";
 
 export default async function migrations(request, response) {
+  let databaseOpenedConnections = await getDatabaseOpenedConnections();
+  console.log(`Conexões abertas no início: ${databaseOpenedConnections}`);
   const dbClient = await database.getNewClient();
   const defaultMigrationOptions = {
     dbClient: dbClient,
@@ -16,6 +18,8 @@ export default async function migrations(request, response) {
   if (request.method === "GET") {
     const pendingMigrations = await migrationRunner(defaultMigrationOptions);
     await dbClient.end();
+    databaseOpenedConnections = await getDatabaseOpenedConnections();
+    console.log(`Conexões abertas GET no final: ${databaseOpenedConnections}`);
     return response.status(200).json(pendingMigrations);
   }
 
@@ -26,6 +30,8 @@ export default async function migrations(request, response) {
     });
 
     await dbClient.end();
+    databaseOpenedConnections = await getDatabaseOpenedConnections();
+    console.log(`Conexões abertas POST no final: ${databaseOpenedConnections}`);
 
     if (migratedMigrations.length > 0) {
       return response.status(201).json(migratedMigrations);
@@ -34,5 +40,20 @@ export default async function migrations(request, response) {
     return response.status(200).json(migratedMigrations);
   }
 
-  return response.status(405).end;
+  databaseOpenedConnections = await getDatabaseOpenedConnections();
+  console.log(`Conexões abertas no final: ${databaseOpenedConnections}`);
+
+  return response.status(405).end();
+}
+
+async function getDatabaseOpenedConnections() {
+  const databaseName = process.env.POSTGRES_DB;
+  const databaseOpenedConnectionsResult = await database.query({
+    text: "SELECT count(*)::int FROM pg_stat_activity WHERE datname = $1;",
+    values: [databaseName],
+  });
+  const databaseOpenedConnectionsValue =
+    databaseOpenedConnectionsResult.rows[0].count;
+
+  return databaseOpenedConnectionsValue;
 }
