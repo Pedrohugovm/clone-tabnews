@@ -15,4 +15,4 @@ jobs:
 
       - run: npm ci
 
-      - run: eslint . --ext .js,.jsx,.ts,.tsx
+      - run: npm run lint:fix
