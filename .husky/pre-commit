@@ -1,0 +1,29 @@
+#!/bin/sh
+. "$(dirname "$0")/_/husky.sh"
+
+echo "🔍 Running detect-secrets pre-commit check..."
+
+if [ ! -f ".secrets.baseline" ]; then
+  echo "❌ Missing .secrets.baseline. Run: detect-secrets scan > .secrets.baseline"
+  exit 1
+fi
+
+# Get staged files
+staged_files=$(git diff --cached --name-only --diff-filter=ACM | grep -Ev 'node_modules|.git|dist|coverage|build' || true)
+if [ -z "$staged_files" ]; then
+  echo "✅ No staged files to check."
+  exit 0
+fi
+
+# Run detect-secrets-hook on staged files
+detect-secrets-hook --baseline .secrets.baseline $staged_files
+status=$?
+
+if [ $status -ne 0 ]; then
+  echo ""
+  echo "🚫 Commit aborted: detect-secrets found potential secrets!"
+  echo "👉 Run: detect-secrets audit .secrets.baseline to review."
+  exit 1
+fi
+
+echo "✅ No new secrets detected. Continuing..."
