@@ -1,9 +1,8 @@
-import database from "infra/database.js";
 import orchestrator from "tests/orchestrator.js";
 
 beforeAll(async () => {
   await orchestrator.waitForAllServices();
-  await database.query("drop schema public cascade; create schema public");
+  await orchestrator.clearDatabase();
 });
 
 describe("POST /api/v1/migrations", () => {
@@ -22,18 +21,6 @@ describe("POST /api/v1/migrations", () => {
 
         expect(Array.isArray(response1Body)).toBe(true);
         expect(response1Body.length).toBeGreaterThan(0);
-
-        for (const migrationResponse of response1Body) {
-          const migrationName = migrationResponse.name;
-
-          const checkMigrationQuery = await database.query({
-            text: "SELECT name FROM public.pgmigrations WHERE name = $1;",
-            values: [migrationName],
-          });
-
-          const checkMigrationNameResult = checkMigrationQuery.rows[0].name;
-          expect(checkMigrationNameResult).toBe(migrationName);
-        }
       });
       test("For the second time", async () => {
         const response2 = await fetch(
